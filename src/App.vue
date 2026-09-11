@@ -10,6 +10,7 @@ import { projectTypes } from './data/projectTypes'
 import { topics } from './data/topics'
 import { createIdea, typePhrase } from './data/ideas'
 import type { SpinnerHandle } from './types/spinner'
+import { trackGeneratedSpin } from './lib/analytics'
 
 const selectedProjectType = ref(2)
 const selectedTopic = ref(topics.indexOf('Productivity'))
@@ -24,6 +25,7 @@ const currentTopic = computed(() => topics[selectedTopic.value] ?? 'Podcast')
 const projectSentence = computed(() => `Build ${typePhrase(currentProjectType.value)} related to ${currentTopic.value.toLowerCase()}.`)
 let copyTimer: ReturnType<typeof setTimeout>
 let copyRequest = 0
+let isActive = true
 watch([selectedProjectType, selectedTopic], () => { generatedIdea.value = ''; copied.value = false; copyError.value = ''; copyRequest++ })
 
 async function spinBoth() {
@@ -38,6 +40,7 @@ async function spinBoth() {
       typeSpinner.value.spin(Math.floor(Math.random() * projectTypes.length), 4000),
       topicSpinner.value.spin(Math.floor(Math.random() * topics.length), 4450),
     ])
+    if (isActive) trackGeneratedSpin(currentProjectType.value, currentTopic.value)
   } finally { isSpinning.value = false }
 }
 async function copyIdea() {
@@ -67,7 +70,7 @@ function useExample(example: typeof examples[number]) {
   selectedTopic.value = topics.indexOf(example.topic)
   dialog.value?.close()
 }
-onBeforeUnmount(() => { clearTimeout(copyTimer); copyRequest++ })
+onBeforeUnmount(() => { isActive = false; clearTimeout(copyTimer); copyRequest++ })
 </script>
 
 <template>

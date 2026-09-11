@@ -9,3 +9,7 @@ Use **spin now**, **Generate Again**, or the header arrow to spin both selectors
 **Copy Idea** copies the short project sentence (requires localhost or HTTPS and clipboard permission). **Generate Idea** selects a local template with no API calls. The gallery provides example combinations to load into the generator.
 
 Edit `src/data/projectTypes.ts`, `src/data/topics.ts`, and `src/data/ideas.ts` to customize the choices and templates. Animation logic lives in `src/composables/useSpinner.ts`; the shared selector is `src/components/TextSpinner.vue`.
+
+Google Analytics uses measurement ID `G-Z408WTQHSV`. Tracking runs in production builds (including `npm run preview`), and is disabled during `npm run dev`. The Google tag collects page views and sessions; `spin_generated` is sent once after both selectors finish, with `project_type` and `topic` parameters. Manual selector changes do not count as generated spins.
+
+Deploy the production build, visit the published site, and complete a spin to verify `spin_generated` in GA4's Realtime report. Homepage totals still require a separate server-side Analytics Data API connection; the measurement ID enables collection but cannot read report totals.
