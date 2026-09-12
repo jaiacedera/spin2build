@@ -8,7 +8,7 @@ import AppFooter from './components/AppFooter.vue'
 import AppIcon from './components/AppIcon.vue'
 import { projectTypes } from './data/projectTypes'
 import { topics } from './data/topics'
-import { createIdea, typePhrase } from './data/ideas'
+import { createIdea, typePhrase, type Direction } from './data/ideas'
 import type { SpinnerHandle } from './types/spinner'
 import { trackGeneratedSpin } from './lib/analytics'
 import { useSiteStats } from './composables/useSiteStats'
@@ -17,7 +17,7 @@ const { totalSpins, totalVisits, loading: statsLoading, refresh: refreshStats } 
 const selectedProjectType = ref(2)
 const selectedTopic = ref(topics.indexOf('Productivity'))
 const isSpinning = ref(false)
-const generatedIdea = ref('')
+const generatedIdea = ref<Direction | null>(null)
 const copied = ref(false)
 const copyError = ref('')
 const typeSpinner = ref<SpinnerHandle>()
@@ -28,12 +28,12 @@ const projectSentence = computed(() => `Build ${typePhrase(currentProjectType.va
 let copyTimer: ReturnType<typeof setTimeout>
 let copyRequest = 0
 let isActive = true
-watch([selectedProjectType, selectedTopic], () => { generatedIdea.value = ''; copied.value = false; copyError.value = ''; copyRequest++ })
+watch([selectedProjectType, selectedTopic], () => { generatedIdea.value = null; copied.value = false; copyError.value = ''; copyRequest++ })
 
 async function spinBoth() {
   if (isSpinning.value || !typeSpinner.value || !topicSpinner.value) return
   isSpinning.value = true
-  generatedIdea.value = ''
+  generatedIdea.value = null
   copied.value = false
   copyError.value = ''
   copyRequest++

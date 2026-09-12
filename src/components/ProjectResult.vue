@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import IdeaDialog from './IdeaDialog.vue'
+import type { Direction } from '../data/ideas'
 import AppIcon from './AppIcon.vue'
-const props = defineProps<{ type: string; topic: string; sentence: string; idea: string; spinning: boolean; copied: boolean; copyError: string }>()
+defineProps<{ type: string; topic: string; sentence: string; idea: Direction | null; spinning: boolean; copied: boolean; copyError: string }>()
 defineEmits<{ spin: []; copy: []; generate: [] }>()
-const ideaDialog = ref<HTMLDialogElement>()
-watch(() => props.idea, idea => {
-  if (idea) ideaDialog.value?.showModal()
-  else ideaDialog.value?.close()
-}, { flush: 'post' })
 </script>
 
 <template>
@@ -26,14 +22,6 @@ watch(() => props.idea, idea => {
       <button :disabled="spinning" @click="$emit('generate')">Generate Idea<AppIcon /></button>
       <span class="copy-status" role="status">{{ copied ? 'Idea copied to clipboard.' : copyError }}</span>
     </div>
-    <dialog ref="ideaDialog" class="info-dialog idea-dialog" aria-labelledby="idea-heading" @click="event => { if (event.target === ideaDialog) ideaDialog?.close() }">
-      <div class="dialog-content">
-        <div class="dialog-top"><span class="eyebrow">A little direction</span><button class="circle-button" aria-label="Close idea" @click="ideaDialog?.close()"><AppIcon name="close" /></button></div>
-        <h2 id="idea-heading">{{ type }} <span class="multiply">×</span> {{ topic }}</h2>
-        <p class="expanded-idea" aria-live="polite">{{ idea }}</p>
-        <p class="idea-footnote">Start small. Make it yours.</p>
-        <button class="spin-link" :disabled="spinning" @click="$emit('generate')">another direction<AppIcon name="refresh" /></button>
-      </div>
-    </dialog>
+    <IdeaDialog :idea="idea" @regenerate="$emit('generate')" />
   </section>
 </template>
