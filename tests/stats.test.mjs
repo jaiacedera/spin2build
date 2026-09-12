@@ -74,6 +74,21 @@ test('empty reports represent confirmed zero counts', async t => {
   assert.deepEqual((await invoke(await freshHandler())).body, { totalSpins: 0, totalVisits: 0 })
 })
 
+test('CDN caching uses the remaining report lifetime and expired reports are fetched again', async t => {
+  configure(t)
+  let now = 1_000_000
+  t.mock.method(Date, 'now', () => now)
+  const request = t.mock.method(JWT.prototype, 'request', async () => reports('1', '2'))
+  const handler = await freshHandler()
+  assert.equal((await invoke(handler)).headers['Cache-Control'], 'public, max-age=0, s-maxage=300')
+  now += 240_000
+  assert.equal((await invoke(handler)).headers['Cache-Control'], 'public, max-age=0, s-maxage=60')
+  assert.equal(request.mock.callCount(), 1)
+  now += 60_000
+  await invoke(handler)
+  assert.equal(request.mock.callCount(), 2)
+})
+
 test('failed and malformed reports never become fabricated zero totals or leak errors', async t => {
   configure(t)
   const responses = [

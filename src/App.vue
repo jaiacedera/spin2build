@@ -13,7 +13,7 @@ import type { SpinnerHandle } from './types/spinner'
 import { trackGeneratedSpin } from './lib/analytics'
 import { useSiteStats } from './composables/useSiteStats'
 
-const { totalSpins, totalVisits, loading: statsLoading } = useSiteStats()
+const { totalSpins, totalVisits, loading: statsLoading, refresh: refreshStats } = useSiteStats()
 const selectedProjectType = ref(2)
 const selectedTopic = ref(topics.indexOf('Productivity'))
 const isSpinning = ref(false)
@@ -42,7 +42,10 @@ async function spinBoth() {
       typeSpinner.value.spin(Math.floor(Math.random() * projectTypes.length), 4000),
       topicSpinner.value.spin(Math.floor(Math.random() * topics.length), 4450),
     ])
-    if (isActive) trackGeneratedSpin(currentProjectType.value, currentTopic.value)
+    if (isActive) {
+      trackGeneratedSpin(currentProjectType.value, currentTopic.value)
+      void refreshStats()
+    }
   } finally { isSpinning.value = false }
 }
 async function copyIdea() {

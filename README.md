@@ -16,7 +16,9 @@ Deploy the production build, visit the published site, and complete a spin to ve
 
 ### Landing-page totals
 
-The landing page reads `/api/stats`. The server queries GA4 for the total `spin_generated` event count and total `sessions` (website visits), from January 1, 2020 through today. These differ from active users and the count of all events shown on the GA home screen. Totals use processed reports, so they do not update immediately after a visit or spin. Successful results are cached for five minutes. A confirmed empty report displays `0`; missing credentials or failed requests display a dash.
+The landing page reads `/api/stats` on load, after a completed spin, every minute while visible, and when returning to the tab. The server queries GA4 for the total `spin_generated` event count and total `sessions` (website visits), from January 1, 2020 through today. These differ from active users and the count of all events shown on the GA home screen. Totals use processed reports, so they do not update immediately after a visit or spin: [Google documents processing delays of 24–48 hours](https://support.google.com/analytics/answer/11198161). Successful results are cached for up to five minutes across the server and CDN. Refreshing does not bypass Analytics processing. A confirmed empty report displays `0`; an initial failure displays a dash, and a failed refresh preserves the last reported totals. The next refresh retries automatically.
+
+To check collection immediately, use GA4 **Reports → Realtime** and look for `spin_generated` after **Spin now** or **Generate Again** finishes. Set a standard report's date range to include today when comparing recent tests. The public total comes from processed reports, not Realtime. An immediate shared counter would require a separate persistent database; this integration never invents increments locally or combines overlapping Realtime and historical reports.
 
 To enable live totals:
 

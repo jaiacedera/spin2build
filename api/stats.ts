@@ -85,7 +85,9 @@ export default async function handler(request: IncomingMessage, response: Server
       }).finally(() => { pending = undefined })
       await pending
     }
-    response.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300')
+    // Don't restart a full CDN cache window for an already-aged in-memory report.
+    const remainingSeconds = Math.max(0, Math.floor((cached!.expiresAt - Date.now()) / 1000))
+    response.setHeader('Cache-Control', `public, max-age=0, s-maxage=${remainingSeconds}`)
     response.statusCode = 200
     response.end(request.method === 'HEAD' ? undefined : JSON.stringify(cached!.stats))
   } catch {

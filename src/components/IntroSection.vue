@@ -17,7 +17,7 @@ const formatTotal = (total: number | null) => total === null ? '—' : numberFor
     <h1 id="intro-heading">stuck<br>on what<br>to build?</h1>
     <p class="intro-copy">Two spins.<br>Infinite possibilities.<br>A simple project idea generator<br class="desktop-break"> for developers, creators, and<br class="desktop-break"> curious minds.</p>
     <button class="spin-link" :disabled="spinning" @click="$emit('spin')">{{ spinning ? 'spinning' : 'spin now' }}<AppIcon :name="spinning ? 'refresh' : 'arrow'" :class="{ rotating: spinning }" /></button>
-    <dl class="intro-stats" aria-label="Website statistics" :aria-busy="statsLoading">
+    <dl class="intro-stats" aria-label="Website statistics. Counts may be delayed." title="Counts may be delayed while new activity is processed." :aria-busy="statsLoading">
       <div>
         <dt>SPINS GENERATED</dt>
         <dd :aria-label="totalSpins === null ? 'Not available' : undefined">{{ formatTotal(totalSpins) }}</dd>
