@@ -4,7 +4,8 @@ withDefaults(defineProps<{
   spinning: boolean
   totalSpins?: number | null
   totalVisits?: number | null
-}>(), { totalSpins: null, totalVisits: null })
+  statsLoading?: boolean
+}>(), { totalSpins: null, totalVisits: null, statsLoading: false })
 defineEmits<{ spin: [] }>()
 const numberFormat = new Intl.NumberFormat('en-US')
 const formatTotal = (total: number | null) => total === null ? '—' : numberFormat.format(total)
@@ -16,7 +17,7 @@ const formatTotal = (total: number | null) => total === null ? '—' : numberFor
     <h1 id="intro-heading">stuck<br>on what<br>to build?</h1>
     <p class="intro-copy">Two spins.<br>Infinite possibilities.<br>A simple project idea generator<br class="desktop-break"> for developers, creators, and<br class="desktop-break"> curious minds.</p>
     <button class="spin-link" :disabled="spinning" @click="$emit('spin')">{{ spinning ? 'spinning' : 'spin now' }}<AppIcon :name="spinning ? 'refresh' : 'arrow'" :class="{ rotating: spinning }" /></button>
-    <dl class="intro-stats" aria-label="Website statistics">
+    <dl class="intro-stats" aria-label="Website statistics" :aria-busy="statsLoading">
       <div>
         <dt>SPINS GENERATED</dt>
         <dd :aria-label="totalSpins === null ? 'Not available' : undefined">{{ formatTotal(totalSpins) }}</dd>

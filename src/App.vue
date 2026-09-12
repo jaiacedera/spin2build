@@ -11,7 +11,9 @@ import { topics } from './data/topics'
 import { createIdea, typePhrase } from './data/ideas'
 import type { SpinnerHandle } from './types/spinner'
 import { trackGeneratedSpin } from './lib/analytics'
+import { useSiteStats } from './composables/useSiteStats'
 
+const { totalSpins, totalVisits, loading: statsLoading } = useSiteStats()
 const selectedProjectType = ref(2)
 const selectedTopic = ref(topics.indexOf('Productivity'))
 const isSpinning = ref(false)
@@ -79,7 +81,7 @@ onBeforeUnmount(() => { isActive = false; clearTimeout(copyTimer); copyRequest++
     <AppHeader :spinning="isSpinning" @spin="spinBoth" @open="openPanel" />
     <main id="generator" class="main-layout">
       <div class="background-words" aria-hidden="true"><span>IDEAS</span><span>BUILD</span><span>CREATE</span></div>
-      <IntroSection :spinning="isSpinning" @spin="spinBoth" />
+      <IntroSection :spinning="isSpinning" :total-spins="totalSpins" :total-visits="totalVisits" :stats-loading="statsLoading" @spin="spinBoth" />
       <div class="spinners">
         <TextSpinner ref="typeSpinner" v-model="selectedProjectType" :items="projectTypes" label="Project type" number="02" :disabled="isSpinning" />
         <TextSpinner ref="topicSpinner" v-model="selectedTopic" :items="topics" label="Topic" number="03" :disabled="isSpinning" />
