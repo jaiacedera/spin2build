@@ -13,7 +13,6 @@ export interface GalleryProject {
   location?: string
   githubUrl?: string
   liveDemoUrl?: string
-  screenshotUrl: string
   problemSolved?: string
   learned?: string
   originalProjectType?: string
@@ -24,4 +23,4 @@ export interface GalleryProject {
   createdAt: string
 }
 
-export type GallerySubmission = Omit<GalleryProject, 'status' | 'featured' | 'createdAt'>
+export type GallerySubmission = Omit<GalleryProject, 'status' | 'featured' | 'createdAt' | 'liveDemoUrl'> & { liveDemoUrl: string }

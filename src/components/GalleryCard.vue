@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import type { GalleryProject } from '../types/gallery'
 import AppIcon from './AppIcon.vue'
+import LiveDemoPreview from './LiveDemoPreview.vue'
 defineProps<{ project: GalleryProject; detail?: boolean; preview?: boolean }>()
 defineEmits<{ open: [project: GalleryProject] }>()
 </script>
 
 <template>
   <article class="gallery-project" :class="{ 'project-detail': detail }">
-    <button v-if="!detail && !preview" class="project-image-link" :aria-label="`View ${project.projectName}`" @click="$emit('open', project)">
-      <img :src="project.screenshotUrl" :alt="`${project.projectName} screenshot`" loading="lazy" width="800" height="500" />
-      <span class="image-open"><AppIcon /></span>
-    </button>
-    <img v-else class="project-image" :src="project.screenshotUrl" :alt="`${project.projectName} screenshot`" width="800" height="500" />
+    <LiveDemoPreview :url="project.liveDemoUrl" :name="project.projectName" :interactive="detail">
+      <button v-if="!detail && !preview" class="project-preview-open" :aria-label="`View ${project.projectName}`" @click="$emit('open', project)">
+        <span class="image-open"><AppIcon /></span>
+      </button>
+    </LiveDemoPreview>
     <div class="project-source"><span>{{ project.source === 'spin2build' ? 'SPUN ON SPIN2BUILD' : 'ORIGINAL IDEA' }}</span><span v-if="project.featured">FEATURED</span></div>
     <h3><button v-if="!detail && !preview" @click="$emit('open', project)">{{ project.projectName }}</button><template v-else>{{ project.projectName }}</template></h3>
     <p class="gallery-description">{{ project.description }}</p>

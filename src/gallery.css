@@ -52,8 +52,14 @@
 .my-build-actions .gallery-primary { white-space:normal; }
 .gallery-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:48px 28px; }
 .gallery-project { min-width:0; padding-bottom:22px; border-bottom:1px solid #292929; overflow-wrap:anywhere; }
-.project-image-link { width:100%; position:relative; display:block; text-align:left; }
-.project-image-link img, .project-image { display:block; width:100%; height:auto; aspect-ratio:8 / 5; object-fit:cover; object-position:top; border:1px solid #292929; background:#080808; }
+.live-demo-viewport { position:relative; width:100%; aspect-ratio:8 / 5; overflow:hidden; border:1px solid #292929; background:#080808; }
+.live-demo-frame { display:block; position:absolute; top:0; left:0; width:1280px; height:800px; max-width:none; border:0; background:#fff; transform-origin:top left; pointer-events:none; }
+.live-demo-interactive .live-demo-frame { pointer-events:auto; }
+.project-preview-open { position:absolute; inset:0; width:100%; height:100%; }
+.project-preview-open:focus-visible { outline:2px solid #fff; outline-offset:-3px; }
+.live-demo-unavailable { display:grid; place-items:center; height:100%; padding:24px; text-align:center; color:#999; font-size:12px; }
+.live-demo-note { margin-top:8px; color:#888; font-size:10px; line-height:1.6; }
+.live-demo-note a { color:#ccc; text-decoration:underline; text-underline-offset:3px; }
 .image-open { position:absolute; right:12px; bottom:12px; background:#000; color:#fff; width:32px; height:32px; border:1px solid #555; display:flex; justify-content:center; align-items:center; }
 .image-open svg { width:18px; height:18px; transform:rotate(-45deg); }
 .project-source { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:9px; letter-spacing:1.4px; color:#aaa; margin:20px 0 12px; }
@@ -95,8 +101,6 @@
 .form-grid small, .field-optional { font-size:10px; font-weight:400; color:#888; }
 .field-optional { margin-top:-5px; }
 .full-field { grid-column:1 / -1; }
-.screenshot-field img { width:160px; max-height:110px; object-fit:contain; border:1px solid #333; }
-.screenshot-field input::file-selector-button { font:inherit; color:#ddd; background:#000; border:1px solid #555; padding:8px 12px; margin-right:12px; cursor:pointer; }
 .gallery-modal .form-divider { margin:8px 0 0; border-top:1px solid #333; padding-top:24px; font-size:10px; letter-spacing:1.5px; }
 .text-button { display:inline-flex; align-items:center; min-height:44px; font-size:12px; color:#bbb; }
 .submission-intro .text-button { margin-left:18px; text-decoration:underline; text-underline-offset:4px; }

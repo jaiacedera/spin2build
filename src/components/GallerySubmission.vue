@@ -3,7 +3,8 @@ import { computed, nextTick, reactive, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
 import GalleryCard from './GalleryCard.vue'
 import { projectTypes } from '../data/projectTypes'
-import { readScreenshot, submitGallery } from '../lib/gallery'
+import { submitGallery } from '../lib/gallery'
+import { normalizeDemoUrl } from '../lib/demoUrl'
 import type { GalleryProject, GallerySource, GallerySubmission as Submission } from '../types/gallery'
 import type { Build } from '../lib/myBuilds'
 
@@ -14,12 +15,10 @@ const heading = ref<HTMLHeadingElement>()
 const step = ref(1)
 const error = ref('')
 const saving = ref(false)
-const readingImage = ref(false)
-const screenshotName = ref('')
 const previewMode = ref<'card' | 'detail'>('card')
 const techText = ref('')
 function blank(): Submission {
-  return { id: crypto.randomUUID(), source: 'spin2build', projectName: '', description: '', projectType: '', topic: '', techStack: [], builderName: '', screenshotUrl: '', buildStatus: 'completed', location: '', githubUrl: '', liveDemoUrl: '', problemSolved: '', learned: '', originalProjectType: props.originalType, originalTopic: props.originalTopic }
+  return { id: crypto.randomUUID(), source: 'spin2build', projectName: '', description: '', projectType: '', topic: '', techStack: [], builderName: '', buildStatus: 'completed', location: '', githubUrl: '', liveDemoUrl: '', problemSolved: '', learned: '', originalProjectType: props.originalType, originalTopic: props.originalTopic }
 }
 const form = reactive(blank())
 const preview = computed<GalleryProject>(() => ({ ...form, techStack: [...new Set(techText.value.split(',').map(tag => tag.trim()).filter(Boolean))], status: 'pending', featured: false, createdAt: '' }))
@@ -40,20 +39,9 @@ function choose(source: GallerySource) {
   if (source === 'spin2build' && !form.projectType) { form.projectType = props.originalType; form.topic = props.originalTopic }
   step.value = 2
 }
-async function upload(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  form.screenshotUrl = ''
-  screenshotName.value = ''
-  readingImage.value = true
-  error.value = ''
-  try { form.screenshotUrl = await readScreenshot(file); screenshotName.value = file.name }
-  catch (cause) { error.value = (cause as Error).message; input.value = '' }
-  finally { readingImage.value = false }
-}
 function showPreview() {
-  if (!form.screenshotUrl) { error.value = 'Add a project screenshot before previewing.'; return }
+  try { form.liveDemoUrl = normalizeDemoUrl(form.liveDemoUrl) }
+  catch { error.value = 'Enter a Live Demo URL using https:// without a username or password.'; return }
   const tags = preview.value.techStack
   if (!tags.length || tags.length > 12 || tags.some(tag => tag.length > 40)) { error.value = 'Add 1–12 technologies, up to 40 characters each, separated by commas.'; return }
   for (const [key, label] of [['githubUrl', 'GitHub'], ['liveDemoUrl', 'Live Demo']] as const) {
@@ -76,7 +64,7 @@ async function submit() {
   catch (cause) { error.value = cause instanceof Error && cause.name !== 'TimeoutError' ? cause.message : 'The request timed out. Please try again; your preview is still here.' }
   finally { saving.value = false }
 }
-function reset() { Object.assign(form, blank()); techText.value = ''; screenshotName.value = ''; step.value = 1 }
+function reset() { Object.assign(form, blank()); techText.value = ''; step.value = 1 }
 </script>
 
 <template>
@@ -103,9 +91,8 @@ function reset() { Object.assign(form, blank()); techText.value = ''; screenshot
           <label class="full-field">Tech Stack *<input v-model="techText" name="techStack" required maxlength="490" placeholder="Vue, TypeScript, Supabase" /><small>Separate technologies with commas. Up to 12.</small></label>
           <label>Builder Name / Alias *<input v-model.trim="form.builderName" name="builderName" required maxlength="80" autocomplete="nickname" placeholder="What should we call you?" /></label>
           <label>Country / Location <span class="field-optional">Optional</span><input v-model.trim="form.location" name="location" maxlength="80" placeholder="Your corner of the world" /></label>
-          <label class="full-field screenshot-field">Project Screenshot *<input type="file" name="screenshot" accept="image/png,image/jpeg,image/webp" :required="!form.screenshotUrl" :disabled="readingImage" @change="upload" /><small>{{ readingImage ? 'Reading screenshot…' : screenshotName || 'PNG, JPG, or WebP · up to 1 MB. Choose an image you have permission to share.' }}</small><img v-if="form.screenshotUrl" :src="form.screenshotUrl" alt="Your selected screenshot" /></label>
           <label>GitHub URL <span class="field-optional">Optional</span><input v-model.trim="form.githubUrl" name="githubUrl" type="url" maxlength="500" placeholder="https://github.com/…" /></label>
-          <label>Live Demo URL <span class="field-optional">Optional</span><input v-model.trim="form.liveDemoUrl" name="liveDemoUrl" type="url" maxlength="500" placeholder="https://…" /></label>
+          <label>Live Demo URL *<input v-model.trim="form.liveDemoUrl" name="liveDemoUrl" type="url" required maxlength="500" placeholder="https://…" /><small>Your landing page appears directly in the gallery. Some sites only allow viewing in a new tab.</small></label>
           <label class="full-field">Build Status<select v-model="form.buildStatus" name="buildStatus"><option value="completed">Completed</option><option value="in-progress">In Progress</option></select></label>
           <template v-if="form.source === 'spin2build'">
             <p class="form-divider full-field">THE ORIGINAL SPIN</p>
@@ -117,7 +104,7 @@ function reset() { Object.assign(form, blank()); techText.value = ''; screenshot
         </div>
         <datalist id="gallery-project-types"><option v-for="type in projectTypes" :key="type" :value="type" /></datalist>
         <p v-if="error" class="gallery-error" role="alert">{{ error }}</p>
-        <div class="submission-actions"><button type="button" class="text-button" @click="step = 1">Back</button><button class="gallery-primary" :disabled="readingImage">Preview Submission <AppIcon /></button></div>
+        <div class="submission-actions"><button type="button" class="text-button" @click="step = 1">Back</button><button class="gallery-primary">Preview Submission <AppIcon /></button></div>
       </form>
       <template v-else-if="step === 3">
         <p class="submission-intro">Here’s how your build will appear once approved.</p>

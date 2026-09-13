@@ -7,8 +7,7 @@ import { join } from 'node:path'
 import handler from '../api/gallery.ts'
 import { validateSubmission } from '../server/galleryValidation.ts'
 
-const screenshotUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aS1sAAAAASUVORK5CYII='
-const submission = (overrides = {}) => ({ id: randomUUID(), source: 'original', projectName: 'A quiet workspace', description: 'A place to focus.', projectType: 'Website', topic: 'Productivity', techStack: ['Vue', 'TypeScript'], builderName: 'Curious Builder', screenshotUrl, buildStatus: 'completed', ...overrides })
+const submission = (overrides = {}) => ({ id: randomUUID(), source: 'original', projectName: 'A quiet workspace', description: 'A place to focus.', projectType: 'Website', topic: 'Productivity', techStack: ['Vue', 'TypeScript'], builderName: 'Curious Builder', liveDemoUrl: 'https://demo.example.com/', buildStatus: 'completed', ...overrides })
 async function invoke(method, body, headers = { 'content-type': 'application/json' }) {
   const response = { statusCode: 0, headers: {}, setHeader(key, value) { this.headers[key] = value }, end(value) { this.body = JSON.parse(value) } }
   await handler({ method, body, headers }, response)
@@ -49,11 +48,16 @@ test('public API returns only approved submissions newest first, with no public 
   assert.equal((await invoke('PATCH', { status: 'approved' })).statusCode, 405)
 })
 
-test('validation rejects missing requirements, unsafe URLs, false screenshots and incomplete original spins', () => {
-  for (const field of ['projectName', 'description', 'projectType', 'topic', 'builderName', 'screenshotUrl']) assert.throws(() => validateSubmission(submission({ [field]: '' })))
+test('validation rejects missing requirements, unsafe URLs and incomplete original spins', () => {
+  for (const field of ['projectName', 'description', 'projectType', 'topic', 'builderName', 'liveDemoUrl']) assert.throws(() => validateSubmission(submission({ [field]: '' })))
   assert.throws(() => validateSubmission(submission({ liveDemoUrl: 'javascript:alert(1)' })))
   assert.throws(() => validateSubmission(submission({ githubUrl: 'https://example.com' })))
-  assert.throws(() => validateSubmission(submission({ screenshotUrl: 'data:image/png;base64,aGVsbG8=' })))
+  for (const liveDemoUrl of ['http://example.com', 'data:text/html,hello', 'https://user:password@example.com']) {
+    assert.throws(() => validateSubmission(submission({ liveDemoUrl })))
+  }
+  const project = validateSubmission(submission({ screenshotUrl: 'legacy image' }))
+  assert.equal(project.liveDemoUrl, 'https://demo.example.com/')
+  assert.equal('screenshotUrl' in project, false)
   assert.throws(() => validateSubmission(submission({ source: 'spin2build' })))
   assert.throws(() => validateSubmission(submission({ techStack: [] })))
   assert.throws(() => validateSubmission(submission({ id: '../anything' })))

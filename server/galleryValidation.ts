@@ -1,4 +1,5 @@
 import type { GalleryProject } from '../src/types/gallery.ts'
+import { normalizeDemoUrl } from '../src/lib/demoUrl.ts'
 
 export class SubmissionError extends Error {}
 
@@ -31,20 +32,16 @@ export function validateSubmission(input: unknown): GalleryProject {
     value.techStack.some(tag => typeof tag !== 'string' || !tag.trim() || tag.trim().length > 40)) {
     throw new SubmissionError('Add between 1 and 12 technologies, up to 40 characters each.')
   }
-  const screenshotUrl = field('screenshotUrl', 1_450_000)
-  const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(screenshotUrl)
-  if (!match) throw new SubmissionError('Upload a PNG, JPEG, or WebP screenshot.')
-  const image = Buffer.from(match[2]!, 'base64')
-  const validImage = match[1] === 'png' ? image.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
-    : match[1] === 'jpeg' ? image[0] === 255 && image[1] === 216 && image[2] === 255
-    : image.toString('ascii', 0, 4) === 'RIFF' && image.toString('ascii', 8, 12) === 'WEBP'
-  if (!validImage || image.length > 1_048_576) throw new SubmissionError('Screenshot must be a valid image under 1 MB.')
+  const rawDemoUrl = field('liveDemoUrl', 500)
+  let liveDemoUrl: string
+  try { liveDemoUrl = normalizeDemoUrl(rawDemoUrl) }
+  catch { throw new SubmissionError('Enter a Live Demo URL using https:// without a username or password.') }
   return {
     id, source: value.source, projectName: field('projectName', 80), description: field('description', 240),
     projectType: field('projectType', 80), topic: field('topic', 80),
     techStack: [...new Set((value.techStack as string[]).map(tag => tag.trim()))],
     builderName: field('builderName', 80), location: field('location', 80, false),
-    githubUrl: link('githubUrl'), liveDemoUrl: link('liveDemoUrl'), screenshotUrl,
+    githubUrl: link('githubUrl'), liveDemoUrl,
     problemSolved: field('problemSolved', 1500, false), learned: field('learned', 1500, false),
     ...(value.source === 'spin2build' ? { originalProjectType: field('originalProjectType', 80), originalTopic: field('originalTopic', 80) } : {}),
     buildStatus: value.buildStatus, status: 'pending', featured: false, createdAt: new Date().toISOString(),
