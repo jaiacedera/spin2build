@@ -42,13 +42,19 @@ export async function listApproved(): Promise<GalleryProject[]> {
   return projects.filter(project => project.status === 'approved').sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
-export async function insertPending(project: GalleryProject): Promise<void> {
+export async function insertPublished(project: GalleryProject): Promise<GalleryProject['status']> {
   if (process.env.GALLERY_SUPABASE_URL) {
-    await database('?on_conflict=id', {
-      method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
-      body: JSON.stringify({ id: project.id, status: 'pending', created_at: project.createdAt, project }),
+    const response = await database('?on_conflict=id&select=status', {
+      method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+      body: JSON.stringify({ id: project.id, status: 'approved', created_at: project.createdAt, project }),
     })
-    return
+    let rows = await response.json() as { status: GalleryProject['status'] }[]
+    if (!rows.length) {
+      const existing = await database(`?id=eq.${encodeURIComponent(project.id)}&select=status`)
+      rows = await existing.json() as typeof rows
+    }
+    if (!rows[0] || !['approved', 'pending', 'rejected'].includes(rows[0].status)) throw new Error('Submission status unavailable')
+    return rows[0].status
   }
   const directory = localDirectory()
   await mkdir(directory, { recursive: true })
@@ -59,5 +65,8 @@ export async function insertPending(project: GalleryProject): Promise<void> {
     await link(temporary, join(directory, `${project.id}.json`))
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    const existing = JSON.parse(await readFile(join(directory, `${project.id}.json`), 'utf8')) as GalleryProject
+    return existing.status
   } finally { await unlink(temporary) }
+  return project.status
 }

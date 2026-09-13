@@ -22,15 +22,15 @@ async function localStore(t) {
   return directory
 }
 
-test('anonymous submissions persist as pending, cannot self-approve, and survive duplicate retries', async t => {
+test('anonymous submissions publish immediately with server-controlled fields and survive duplicate retries', async t => {
   const directory = await localStore(t)
-  const input = submission({ status: 'approved', featured: true, createdAt: '2000-01-01' })
+  const input = submission({ status: 'pending', featured: true, createdAt: '2000-01-01' })
   assert.equal((await invoke('POST', input)).statusCode, 201)
   const stored = JSON.parse(await readFile(join(directory, `${input.id}.json`), 'utf8'))
-  assert.equal(stored.status, 'pending')
+  assert.equal(stored.status, 'approved')
   assert.equal(stored.featured, false)
   assert.notEqual(stored.createdAt, input.createdAt)
-  assert.deepEqual((await invoke('GET')).body.projects, [])
+  assert.deepEqual((await invoke('GET')).body.projects.map(project => project.id), [input.id])
   await invoke('POST', { ...input, projectName: 'Overwrite attempt' })
   assert.equal((await readdir(directory)).length, 1)
   assert.equal(JSON.parse(await readFile(join(directory, `${input.id}.json`), 'utf8')).projectName, input.projectName)
@@ -80,7 +80,7 @@ test('API rejects malformed requests and reports persistence failure rather than
   assert.equal((await invoke('POST', submission())).statusCode, 503)
 })
 
-test('database adapter queries approved rows and inserts pending with server-only credentials', async t => {
+test('database adapter queries approved rows and publishes with server-only credentials', async t => {
   await localStore(t)
   process.env.GALLERY_SUPABASE_URL = 'https://test.supabase.co'
   const previous = process.env.GALLERY_SUPABASE_SERVICE_KEY
@@ -89,9 +89,10 @@ test('database adapter queries approved rows and inserts pending with server-onl
   t.mock.method(globalThis, 'fetch', async (url, init) => {
     assert.equal(init.headers.apikey, 'test-server-key')
     if (init.method === 'POST') {
-      assert.equal(JSON.parse(init.body).status, 'pending')
+      assert.equal(JSON.parse(init.body).status, 'approved')
+      assert.equal(JSON.parse(init.body).project.status, 'approved')
       assert.match(init.headers.Prefer, /ignore-duplicates/)
-      return new Response(null, { status: 201 })
+      return Response.json([{ status: 'approved' }], { status: 201 })
     }
     assert.match(url, /status=eq.approved/)
     assert.match(url, /order=created_at.desc/)
@@ -99,4 +100,39 @@ test('database adapter queries approved rows and inserts pending with server-onl
   })
   assert.equal((await invoke('POST', submission())).statusCode, 201)
   assert.equal((await invoke('GET')).body.projects[0].status, 'approved')
+})
+
+
+test('retrying an existing hidden build does not republish it or report publication', async t => {
+  const directory = await localStore(t)
+  for (const status of ['pending', 'rejected']) {
+    const input = submission()
+    const existing = { ...validateSubmission(input), status }
+    await writeFile(join(directory, input.id + '.json'), JSON.stringify(existing))
+    const response = await invoke('POST', input)
+    assert.equal(response.statusCode, 409)
+    assert.match(response.body.error, /not published/)
+    assert.equal(JSON.parse(await readFile(join(directory, input.id + '.json'), 'utf8')).status, status)
+  }
+  assert.deepEqual((await invoke('GET')).body.projects, [])
+})
+
+test('database duplicate retry returns the stored status without overwriting the row', async t => {
+  await localStore(t)
+  const previous = process.env.GALLERY_SUPABASE_SERVICE_KEY
+  process.env.GALLERY_SUPABASE_URL = 'https://test.supabase.co'
+  process.env.GALLERY_SUPABASE_SERVICE_KEY = 'test-server-key'
+  t.after(() => { if (previous === undefined) delete process.env.GALLERY_SUPABASE_SERVICE_KEY; else process.env.GALLERY_SUPABASE_SERVICE_KEY = previous })
+  let status = 'approved'
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    if (init.method === 'POST') {
+      assert.match(init.headers.Prefer, /ignore-duplicates/)
+      return Response.json([])
+    }
+    assert.match(url, /id=eq./)
+    return Response.json([{ status }])
+  })
+  assert.equal((await invoke('POST', submission())).body.status, 'approved')
+  status = 'rejected'
+  assert.equal((await invoke('POST', submission())).statusCode, 409)
 })

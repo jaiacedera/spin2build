@@ -21,7 +21,7 @@ function blank(): Submission {
   return { id: crypto.randomUUID(), source: 'spin2build', projectName: '', description: '', projectType: '', topic: '', techStack: [], builderName: '', buildStatus: 'completed', location: '', githubUrl: '', liveDemoUrl: '', problemSolved: '', learned: '', originalProjectType: props.originalType, originalTopic: props.originalTopic }
 }
 const form = reactive(blank())
-const preview = computed<GalleryProject>(() => ({ ...form, techStack: [...new Set(techText.value.split(',').map(tag => tag.trim()).filter(Boolean))], status: 'pending', featured: false, createdAt: '' }))
+const preview = computed<GalleryProject>(() => ({ ...form, techStack: [...new Set(techText.value.split(',').map(tag => tag.trim()).filter(Boolean))], status: 'approved', featured: false, createdAt: '' }))
 watch(step, async () => { await nextTick(); heading.value?.focus(); dialog.value?.scrollTo({ top: 0 }); error.value = '' })
 
 function open(build?: Build) {
@@ -71,7 +71,7 @@ function reset() { Object.assign(form, blank()); techText.value = ''; step.value
   <dialog ref="dialog" class="info-dialog gallery-modal submission-modal" aria-labelledby="submission-heading" @cancel="event => { if (saving) event.preventDefault() }">
     <div class="gallery-modal-content">
       <div class="dialog-top"><span class="eyebrow">SHARE YOUR BUILD <span class="step-indicator">{{ String(step).padStart(2, '0') }} / 04</span></span><button class="circle-button" aria-label="Close submission" :disabled="saving" @click="dialog?.close()"><AppIcon name="close" /></button></div>
-      <h2 id="submission-heading" ref="heading" tabindex="-1">{{ step === 1 ? 'How would you like to share your project?' : step === 2 ? 'Tell us about your build.' : step === 3 ? 'Preview Submission' : 'Your project was submitted.' }}</h2>
+      <h2 id="submission-heading" ref="heading" tabindex="-1">{{ step === 1 ? 'How would you like to share your project?' : step === 2 ? 'Tell us about your build.' : step === 3 ? 'Preview Submission' : 'Your project is published.' }}</h2>
       <template v-if="step === 1">
         <p class="submission-intro">Every project has a starting point. What was yours?</p>
         <div class="source-options">
@@ -82,7 +82,7 @@ function reset() { Object.assign(form, blank()); techText.value = ''; step.value
       </template>
       <form v-else-if="step === 2" class="submission-form" @submit.prevent="showPreview">
         <p class="submission-intro">{{ form.source === 'spin2build' ? 'SPUN ON SPIN2BUILD' : 'ORIGINAL IDEA' }} <button type="button" class="text-button" @click="step = 1">Change</button></p>
-        <p class="submission-note">Fields marked * are required. Your build will be reviewed before it appears in the gallery.</p>
+        <p class="submission-note">Fields marked * are required. Your build will appear in the gallery immediately after you submit.</p>
         <div class="form-grid">
           <label class="full-field">Project Name *<input v-model.trim="form.projectName" name="projectName" required maxlength="80" placeholder="Give your build a name" /></label>
           <label class="full-field">Short Description *<textarea v-model.trim="form.description" name="description" required maxlength="240" rows="2" placeholder="What does your project do?" /><small>{{ form.description.length }} / 240</small></label>
@@ -107,16 +107,16 @@ function reset() { Object.assign(form, blank()); techText.value = ''; step.value
         <div class="submission-actions"><button type="button" class="text-button" @click="step = 1">Back</button><button class="gallery-primary">Preview Submission <AppIcon /></button></div>
       </form>
       <template v-else-if="step === 3">
-        <p class="submission-intro">Here’s how your build will appear once approved.</p>
+        <p class="submission-intro">Here’s how your build will appear in the gallery.</p>
         <div class="preview-toggle" aria-label="Preview format"><button :aria-pressed="previewMode === 'card'" @click="previewMode = 'card'">Gallery card</button><button :aria-pressed="previewMode === 'detail'" @click="previewMode = 'detail'">Project detail</button></div>
         <div class="submission-preview" :class="{ 'card-preview': previewMode === 'card' }"><GalleryCard :project="preview" :detail="previewMode === 'detail'" preview /></div>
-        <p class="submission-note">Submitted projects are reviewed before publishing. Your builder name and the details above will be public after approval.</p>
+        <p class="submission-note">Your builder name and the details above will be public as soon as you submit.</p>
         <p v-if="error" class="gallery-error" role="alert">{{ error }}</p>
         <div class="submission-actions"><button class="text-button" :disabled="saving" @click="step = 2">Edit</button><button class="gallery-primary" :disabled="saving" @click="submit">{{ saving ? 'Submitting…' : 'Submit to Gallery' }}<AppIcon /></button></div>
       </template>
       <template v-else>
         <p class="submission-intro">Thanks for sharing your build with the Spin2Build community.</p>
-        <p class="review-status" role="status"><AppIcon name="check" />Submitted for review.</p>
+        <p class="publish-status" role="status"><AppIcon name="check" />Published to the gallery.</p>
         <div class="submission-actions"><button class="text-button" @click="reset(); dialog?.close()">Back to Gallery</button><button class="gallery-primary" @click="reset">Submit Another Project <AppIcon /></button></div>
       </template>
     </div>

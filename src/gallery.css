@@ -116,7 +116,7 @@
 .project-story { border-top:1px solid #292929; margin-top:22px; padding-top:22px; display:grid; gap:24px; }
 .project-story h4 { margin:0; font-size:10px; letter-spacing:1.5px; font-weight:400; }
 .project-story p { white-space:pre-line; overflow-wrap:anywhere; }
-.gallery-modal .review-status { display:flex; align-items:center; gap:16px; margin:32px 0 44px; padding-block:24px; border-block:1px solid #333; color:#eee; font-size:14px; }
+.gallery-modal .publish-status { display:flex; align-items:center; gap:16px; margin:32px 0 44px; padding-block:24px; border-block:1px solid #333; color:#eee; font-size:14px; }
 .visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .gallery-modal input:focus-visible, .gallery-modal textarea:focus-visible, .gallery-modal select:focus-visible, .gallery-search input:focus-visible { outline:1px solid #eee; outline-offset:3px; }
 @media (min-width:1600px) { .gallery-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }

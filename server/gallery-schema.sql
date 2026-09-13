@@ -1,7 +1,7 @@
 -- Run once in the Supabase SQL editor. No visitor accounts or public table access.
 create table if not exists public.gallery_projects (
   id uuid primary key,
-  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  status text not null default 'approved' check (status in ('pending', 'approved', 'rejected')),
   created_at timestamptz not null default now(),
   project jsonb not null
 );

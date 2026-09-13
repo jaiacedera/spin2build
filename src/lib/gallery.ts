@@ -13,5 +13,5 @@ export async function submitGallery(project: GallerySubmission): Promise<void> {
     signal: AbortSignal.timeout(30000),
   })
   const result = await response.json() as { error?: string; status?: string }
-  if (!response.ok || result.status !== 'pending') throw new Error(result.error ?? 'Submission could not be saved. Please try again.')
+  if (!response.ok || result.status !== 'approved') throw new Error(result.error ?? 'Submission could not be published. Please try again.')
 }

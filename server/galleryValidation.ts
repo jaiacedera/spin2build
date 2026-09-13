@@ -44,6 +44,6 @@ export function validateSubmission(input: unknown): GalleryProject {
     githubUrl: link('githubUrl'), liveDemoUrl,
     problemSolved: field('problemSolved', 1500, false), learned: field('learned', 1500, false),
     ...(value.source === 'spin2build' ? { originalProjectType: field('originalProjectType', 80), originalTopic: field('originalTopic', 80) } : {}),
-    buildStatus: value.buildStatus, status: 'pending', featured: false, createdAt: new Date().toISOString(),
+    buildStatus: value.buildStatus, status: 'approved', featured: false, createdAt: new Date().toISOString(),
   }
 }

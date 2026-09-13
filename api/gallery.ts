@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { insertPending, listApproved } from '../server/galleryStore.ts'
+import { insertPublished, listApproved } from '../server/galleryStore.ts'
 import { SubmissionError, validateSubmission } from '../server/galleryValidation.ts'
 
 async function readBody(request: IncomingMessage & { body?: unknown }): Promise<unknown> {
@@ -33,8 +33,11 @@ export default async function handler(request: IncomingMessage, response: Server
       send(415, { error: 'Send the submission as JSON.' }); return
     }
     const project = validateSubmission(await readBody(request))
-    await insertPending(project)
-    send(201, { id: project.id, status: 'pending' })
+    const status = await insertPublished(project)
+    if (status !== 'approved') {
+      send(409, { error: 'This submission already exists but is not published. Please contact the site owner.' }); return
+    }
+    send(201, { id: project.id, status })
   } catch (error) {
     if (error instanceof SubmissionError || error instanceof SyntaxError) {
       send(400, { error: error instanceof SyntaxError ? 'Invalid JSON submission.' : error.message })
