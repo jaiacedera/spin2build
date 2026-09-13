@@ -6,6 +6,7 @@ import TextSpinner from './components/TextSpinner.vue'
 import ProjectResult from './components/ProjectResult.vue'
 import AppFooter from './components/AppFooter.vue'
 import AppIcon from './components/AppIcon.vue'
+import GalleryPage from './components/GalleryPage.vue'
 import { projectTypes } from './data/projectTypes'
 import { topics } from './data/topics'
 import { createIdea, typePhrase, type Direction } from './data/ideas'
@@ -63,23 +64,18 @@ async function copyIdea() {
 }
 const panel = ref<'about' | 'gallery'>('about')
 const dialog = ref<HTMLDialogElement>()
-function openPanel(page: 'about' | 'gallery') { panel.value = page; dialog.value?.showModal() }
-const examples = [
-  { title: 'A calmer kind of focus.', type: 'Desktop App', topic: 'Productivity', description: 'A quiet workspace for your tasks, focus sessions, and daily wins.' },
-  { title: 'Good things, on repeat.', type: 'Mobile App', topic: 'Music', description: 'Collect the songs you love and build playlists for every little moment.' },
-  { title: 'Small habits. Big growth.', type: 'Website', topic: 'Gardening', description: 'A personal plant journal with care schedules and room to grow.' },
-  { title: 'Your next rabbit hole.', type: 'Browser Extension', topic: 'Books', description: 'Save book recommendations from around the web to one reading list.' },
-]
-function useExample(example: typeof examples[number]) {
-  selectedProjectType.value = projectTypes.indexOf(example.type)
-  selectedTopic.value = topics.indexOf(example.topic)
-  dialog.value?.close()
+const isGallery = ref(/^#gallery(?:\/|$)/.test(window.location.hash))
+function syncPage() { isGallery.value = /^#gallery(?:\/|$)/.test(window.location.hash); window.scrollTo(0, 0) }
+window.addEventListener('hashchange', syncPage)
+function openPanel(page: 'about' | 'gallery') {
+  if (page === 'gallery') { window.location.hash = 'gallery'; return }
+  panel.value = 'about'; dialog.value?.showModal()
 }
-onBeforeUnmount(() => { isActive = false; clearTimeout(copyTimer); copyRequest++ })
+onBeforeUnmount(() => { isActive = false; clearTimeout(copyTimer); copyRequest++; window.removeEventListener('hashchange', syncPage) })
 </script>
 
 <template>
-  <div id="home" class="site-shell">
+  <div v-show="!isGallery" id="home" class="site-shell">
     <a class="skip-link" href="#generator">Skip to generator</a>
     <AppHeader :spinning="isSpinning" @spin="spinBoth" @open="openPanel" />
     <main id="generator" class="main-layout">
@@ -93,6 +89,8 @@ onBeforeUnmount(() => { isActive = false; clearTimeout(copyTimer); copyRequest++
       <div class="side-note" aria-hidden="true">IDEAS<br>TODAY<br>PROJECTS<br>TOMORROW</div>
     </main>
     <AppFooter />
+  </div>
+  <GalleryPage v-if="isGallery" :original-type="currentProjectType" :original-topic="currentTopic" @about="openPanel('about')" />
     <dialog ref="dialog" class="info-dialog" aria-labelledby="panel-heading" @click="event => { if (event.target === dialog) dialog?.close() }">
       <div class="dialog-content">
         <div class="dialog-top"><span class="eyebrow">spin2build / {{ panel }}</span><button class="circle-button" aria-label="Close panel" @click="dialog?.close()"><AppIcon name="close" /></button></div>
@@ -121,12 +119,6 @@ onBeforeUnmount(() => { isActive = false; clearTimeout(copyTimer); copyRequest++
             </section>
           </div>
         </template>
-        <template v-else>
-          <h2 id="panel-heading">A spark is<br>all it takes.</h2>
-          <p>A few starting points. Pick one and see where it goes.</p>
-          <div class="gallery-list"><button v-for="(example, index) in examples" :key="example.title" :disabled="isSpinning" @click="useExample(example)"><span class="section-number">0{{ index + 1 }}</span><span><span class="eyebrow">{{ example.type }} × {{ example.topic }}</span><strong>{{ example.title }}</strong><span class="gallery-description">{{ example.description }}</span></span><AppIcon /></button></div>
-        </template>
       </div>
     </dialog>
-  </div>
 </template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppIcon from './AppIcon.vue'
-defineProps<{ spinning: boolean }>()
-defineEmits<{ spin: []; open: [page: 'about' | 'gallery'] }>()
+defineProps<{ spinning: boolean; gallery?: boolean }>()
+defineEmits<{ spin: []; open: [page: 'about' | 'gallery']; submit: [] }>()
 </script>
 
 <template>
@@ -11,8 +11,9 @@ defineEmits<{ spin: []; open: [page: 'about' | 'gallery'] }>()
     <nav aria-label="Main navigation">
       <a href="#home">home</a>
       <button @click="$emit('open', 'about')">about</button>
-      <button @click="$emit('open', 'gallery')">gallery</button>
-      <button class="circle-button" aria-label="Spin a new project" :disabled="spinning" @click="$emit('spin')"><AppIcon /></button>
+      <button :aria-current="gallery ? 'page' : undefined" @click="$emit('open', 'gallery')">gallery</button>
+      <button v-if="gallery" class="gallery-primary" @click="$emit('submit')">+ Submit Your Build</button>
+      <button v-else class="circle-button" aria-label="Spin a new project" :disabled="spinning" @click="$emit('spin')"><AppIcon /></button>
     </nav>
   </header>
 </template>

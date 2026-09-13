@@ -6,7 +6,32 @@ Run `npm install` and `npm run dev` to start. `npm run build` checks TypeScript 
 
 Use **spin now**, **Generate Again**, or the header arrow to spin both selectors. Each selector also supports previous/next buttons, ArrowUp/ArrowDown when focused, mouse wheel, and vertical touch swipes. Reduced-motion preferences skip the long animation.
 
-**Copy Idea** copies the short project sentence (requires localhost or HTTPS and clipboard permission). **Generate Idea** selects a local template with no API calls. The gallery provides example combinations to load into the generator.
+**Copy Idea** copies the short project sentence (requires localhost or HTTPS and clipboard permission). **Generate Idea** selects a local template with no API calls. The public community gallery is available at `/#gallery`.
+
+### Public community gallery
+
+The Supabase JavaScript client is configured in `src/utils/supabase.ts` using `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. `.env.local` supplies these locally and is git-ignored; add the same settings in Vercel for builds that use this client. Session persistence, automatic token refresh, and authentication callback detection are disabled. My Builds continues to use browser-only localStorage.
+
+This browser client does not replace the community `/api/gallery` endpoint. The existing gallery schema deliberately gives anonymous clients no direct table access, so the publishable key alone does not enable community storage. Configure the server settings below to enable the shared gallery. The tutorial's `todos` UI is not part of Spin2Build.
+
+The Gallery has two top-level views: **Community** (`/#gallery`) and **My Builds** (`/#gallery/my-builds/drafts`). My Builds is local to the current browser and needs no backend or account. Accepting a generated challenge saves it as a draft and offers **Keep Spinning** or **View Draft**. Use **Start Building** to move it to In Progress, then **Mark Complete** to move it to Completed. Checklists stay with the build across reloads. Completed builds can prefill the public submission form, but are never published automatically.
+
+Previous local challenges are preserved under the existing `spin2build.build-history.v1` localStorage key. Older records without a status are read as Drafts when untouched, In Progress when partly checked, or Completed when every feature is checked. Explicit statuses are retained; accepting the same direction again does not reset its progress. The old history popup has been removed.
+
+Anyone can browse and submit, without a visitor account. The four-step submission flow collects the project source and details, uploads a PNG/JPEG/WebP screenshot (up to 1 MB), previews the same card/detail components used publicly, and submits for review. Screenshots are stored as image data URLs with the project, so a separate upload service is not required.
+
+`POST /api/gallery` validates fields and image signatures, assigns `pending`, clears `featured`, and sets the creation time on the server. Submissions cannot approve themselves. Retrying the same submission ID does not create a duplicate or overwrite a reviewed build. `GET /api/gallery` returns approved projects only, newest first. Community has search and All, From Spin2Build, Original Ideas, Featured, and Newest filters. My Builds has Drafts, In Progress, and Completed tabs. Local build status is independent of community moderation `status`.
+
+During `npm run dev`, submissions persist as individual JSON files under `.gallery-data.local` (git-ignored and blocked from Vite's file server). No example builds are represented as community submissions. Privately change a file's `status` to `approved` or `rejected` to review a local build; set `featured` to `true` to feature it. Refresh the gallery after moderation. There is no public administration or update endpoint.
+
+For a shared production gallery:
+
+1. Run [server/gallery-schema.sql](server/gallery-schema.sql) in your Supabase SQL editor.
+2. Set server-only `GALLERY_SUPABASE_URL` and `GALLERY_SUPABASE_SERVICE_KEY` (the legacy `service_role` key) in your host environment. No Supabase Auth configuration or visitor accounts are needed. The table has row-level security enabled and no anonymous table grants; only the server accesses it through the [Supabase REST API](https://supabase.com/docs/guides/api).
+3. Deploy the Node endpoint in `api/gallery.ts` together with the site, as with the existing stats endpoint. A static `dist` upload alone cannot accept submissions. In serverless production, missing database configuration returns an unavailable response rather than pretending to save to temporary storage.
+4. Moderate privately in the database by changing the row's top-level `status` to `approved` or `rejected`. Example queries are in the schema file. `project.featured` controls the Featured filter. Neither pending nor rejected records are returned publicly.
+
+A single persistent Node server can instead set `GALLERY_LOCAL_DIR` to a durable directory. This file adapter is intended for one server; use the shared database for multiple instances. Local data is not automatically migrated to the production database. For local production preview, set `GALLERY_LOCAL_DIR=.gallery-data.local` or configure the database before starting `npm run preview`.
 
 Edit `src/data/projectTypes.ts`, `src/data/topics.ts`, and `src/data/ideas.ts` to customize the choices and templates. Animation logic lives in `src/composables/useSpinner.ts`; the shared selector is `src/components/TextSpinner.vue`.
 
