@@ -35,7 +35,7 @@ function mountStats(t) {
 }
 
 test('refreshes on a timer and tab return, retains data on failure, and stops on unmount', async t => {
-  t.mock.timers.enable({ apis: ['setInterval'] })
+  t.mock.timers.enable({ apis: ['setInterval', 'Date'], now: 1000000 })
   let total = 1
   let failed = false
   const fetch = t.mock.method(globalThis, 'fetch', async () => failed
@@ -44,11 +44,11 @@ test('refreshes on a timer and tab return, retains data on failure, and stops on
   await flush()
   assert.equal(stats.totalSpins.value, 1)
   total = 4
-  t.mock.timers.tick(60_000)
+  t.mock.timers.tick(300_000)
   await flush()
   assert.equal(stats.totalSpins.value, 4)
   page.visibilityState = 'hidden'
-  t.mock.timers.tick(60_000)
+  t.mock.timers.tick(300_000)
   await flush()
   assert.equal(fetch.mock.callCount(), 2)
   total = 5
@@ -59,10 +59,13 @@ test('refreshes on a timer and tab return, retains data on failure, and stops on
   assert.equal(stats.totalSpins.value, 5)
   assert.equal(fetch.mock.callCount(), 3, 'focus must not duplicate an in-flight refresh')
   failed = true
+  t.mock.timers.tick(300_000)
+  await flush()
   await stats.refresh()
   assert.equal(stats.totalSpins.value, 5)
   failed = false
   total = 0
+  t.mock.timers.tick(60_000)
   await stats.refresh()
   assert.equal(stats.totalSpins.value, 0, 'a confirmed zero must display correctly')
   unmount()
@@ -74,6 +77,7 @@ test('refreshes on a timer and tab return, retains data on failure, and stops on
 })
 
 test('recovers from an initial invalid report on a later refresh', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1000000 })
   let valid = false
   t.mock.method(globalThis, 'fetch', async () => valid ? response(3) : response(-1))
   const { stats } = mountStats(t)
@@ -81,6 +85,7 @@ test('recovers from an initial invalid report on a later refresh', async t => {
   assert.equal(stats.totalSpins.value, null)
   assert.equal(stats.loading.value, false)
   valid = true
+  t.mock.timers.tick(60_000)
   await stats.refresh()
   assert.equal(stats.totalSpins.value, 3)
 })
@@ -96,4 +101,19 @@ test('aborts an in-flight request when the page is unmounted', async t => {
   await flush()
   assert.equal(requestSignal.aborted, true)
   assert.equal(stats.totalSpins.value, null)
+})
+
+test('rapid refreshes and focus events respect the cooldown and Retry-After', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1000000 })
+  const fetch = t.mock.method(globalThis, 'fetch', async () => new Response('', { status: 429, headers: { 'Retry-After': '600' } }))
+  const { stats, windowEvents } = mountStats(t)
+  await flush()
+  for (let i = 0; i < 20; i++) { await stats.refresh(); windowEvents.dispatchEvent(new Event('focus')) }
+  assert.equal(fetch.mock.callCount(), 1)
+  t.mock.timers.tick(599000)
+  await stats.refresh()
+  assert.equal(fetch.mock.callCount(), 1)
+  t.mock.timers.tick(1000)
+  await stats.refresh()
+  assert.equal(fetch.mock.callCount(), 2)
 })

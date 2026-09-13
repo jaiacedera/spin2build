@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { randomUUID } from 'node:crypto'
 import { JWT } from 'google-auth-library'
 
 let moduleId = 0
@@ -17,7 +18,7 @@ async function invoke(handler, method = 'GET') {
   return { ...response, headers }
 }
 function configure(t) {
-  const values = { GA_PROPERTY_ID: '553743552', GA_CLIENT_EMAIL: 'test@example.com', GA_PRIVATE_KEY: 'test-key' }
+  const values = { GALLERY_LOCAL_DIR: 'stats-test-' + randomUUID(), GA_PROPERTY_ID: '553743552', GA_CLIENT_EMAIL: 'test@example.com', GA_PRIVATE_KEY: 'test-key' }
   for (const [key, value] of Object.entries(values)) {
     const previous = process.env[key]
     process.env[key] = value
@@ -108,4 +109,22 @@ test('failed and malformed reports never become fabricated zero totals or leak e
   }
   assert.deepEqual((await invoke(handler)).body, { totalSpins: 4, totalVisits: 7 })
   assert.equal(request.mock.callCount(), 6)
+})
+
+
+test('shared report budget blocks Google calls and returns Retry-After', async t => {
+  configure(t)
+  const previous = { GALLERY_SUPABASE_URL: process.env.GALLERY_SUPABASE_URL, GALLERY_SUPABASE_SERVICE_KEY: process.env.GALLERY_SUPABASE_SERVICE_KEY }
+  process.env.GALLERY_SUPABASE_URL = 'https://test.supabase.co'
+  process.env.GALLERY_SUPABASE_SERVICE_KEY = 'server-key'
+  t.after(() => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value } })
+  t.mock.method(globalThis, 'fetch', async (_, options) => {
+    const report = JSON.parse(options.body).p_policy === 'stats-report'
+    return Response.json({ allowed: !report, retry_after: report ? 600 : 0 })
+  })
+  const google = t.mock.method(JWT.prototype, 'request', async () => { throw new Error('Must not query') })
+  const result = await invoke(await freshHandler())
+  assert.equal(result.statusCode, 429)
+  assert.equal(result.headers['Retry-After'], '600')
+  assert.equal(google.mock.callCount(), 0)
 })

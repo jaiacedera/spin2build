@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { JWT } from 'google-auth-library'
+import { clientIdentity, consumeUsage, UsageLimitError } from '../server/usageLimits.ts'
 
 type Report = {
   rowCount?: number
@@ -33,6 +34,7 @@ async function loadStats(): Promise<SiteStats> {
   if (!propertyId || !/^\d+$/.test(propertyId) || !email || !key) {
     throw new Error('Missing Analytics configuration')
   }
+  await consumeUsage('stats-report')
   const client = new JWT({
     email,
     key,
@@ -77,6 +79,7 @@ export default async function handler(request: IncomingMessage, response: Server
     return
   }
   try {
+    await consumeUsage('stats-read', clientIdentity(request))
     if (!cached || cached.expiresAt <= Date.now()) {
       // Share an in-flight request to avoid duplicate reports on concurrent visits.
       pending ??= loadStats().then(stats => {
@@ -90,9 +93,10 @@ export default async function handler(request: IncomingMessage, response: Server
     response.setHeader('Cache-Control', `public, max-age=0, s-maxage=${remainingSeconds}`)
     response.statusCode = 200
     response.end(request.method === 'HEAD' ? undefined : JSON.stringify(cached!.stats))
-  } catch {
+  } catch (error) {
     // Never expose credential details or Google's raw error responses publicly.
-    response.statusCode = 503
+    response.statusCode = error instanceof UsageLimitError ? 429 : 503
+    response.setHeader('Retry-After', String(error instanceof UsageLimitError ? error.retryAfter : 60))
     response.end(request.method === 'HEAD' ? undefined : JSON.stringify({ error: 'Statistics unavailable' }))
   }
 }

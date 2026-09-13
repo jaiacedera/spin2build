@@ -14,7 +14,7 @@ import type { SpinnerHandle } from './types/spinner'
 import { trackGeneratedSpin } from './lib/analytics'
 import { useSiteStats } from './composables/useSiteStats'
 
-const { totalSpins, totalVisits, loading: statsLoading, refresh: refreshStats } = useSiteStats()
+const { totalSpins, totalVisits, loading: statsLoading } = useSiteStats()
 const selectedProjectType = ref(2)
 const selectedTopic = ref(topics.indexOf('Productivity'))
 const isSpinning = ref(false)
@@ -45,7 +45,6 @@ async function spinBoth() {
     ])
     if (isActive) {
       trackGeneratedSpin(currentProjectType.value, currentTopic.value)
-      void refreshStats()
     }
   } finally { isSpinning.value = false }
 }

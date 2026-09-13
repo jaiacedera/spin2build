@@ -2,6 +2,7 @@ import { link, mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promi
 import { randomUUID } from 'node:crypto'
 import { resolve, join } from 'node:path'
 import type { GalleryProject } from '../src/types/gallery.ts'
+import type { GalleryQuery } from '../src/types/galleryPage.ts'
 
 function localDirectory() {
   if (process.env.GALLERY_LOCAL_DIR) return resolve(process.env.GALLERY_LOCAL_DIR)
@@ -9,11 +10,11 @@ function localDirectory() {
   return resolve('.gallery-data.local')
 }
 
-async function database(path: string, init?: RequestInit) {
+async function database(path: string, init?: RequestInit, resource = 'gallery_projects') {
   const url = process.env.GALLERY_SUPABASE_URL
   const key = process.env.GALLERY_SUPABASE_SERVICE_KEY
   if (!url || !key) throw new Error('Gallery database is not configured')
-  const response = await fetch(`${url.replace(/\/$/, '')}/rest/v1/gallery_projects${path}`, {
+  const response = await fetch(`${url.replace(/\/$/, '')}/rest/v1/${resource}${path}`, {
     ...init,
     headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...init?.headers },
     signal: AbortSignal.timeout(15000),
@@ -22,24 +23,25 @@ async function database(path: string, init?: RequestInit) {
   return response
 }
 
-export async function listApproved(): Promise<GalleryProject[]> {
+export async function listApproved(query: GalleryQuery = { page: 0, search: '', filter: 'All' }): Promise<GalleryProject[]> {
   let projects: GalleryProject[]
   if (process.env.GALLERY_SUPABASE_URL) {
-    // Page through the public collection so database response limits don't silently hide builds.
-    projects = []
-    for (let offset = 0; ; offset += 100) {
-      const response = await database(`?status=eq.approved&select=project,status,created_at&order=created_at.desc,id.desc&limit=100&offset=${offset}`)
-      const rows = await response.json() as { project: GalleryProject; status: GalleryProject['status']; created_at: string }[]
-      projects.push(...rows.map(row => ({ ...row.project, status: row.status, createdAt: row.created_at })))
-      if (rows.length < 100) break
-    }
+    const response = await database('', { method: 'POST', body: JSON.stringify({ p_page: query.page, p_search: query.search, p_filter: query.filter }) }, 'rpc/gallery_page')
+    const rows = await response.json() as { project: GalleryProject; status: GalleryProject['status']; created_at: string }[]
+    return rows.slice(0, 25).map(row => ({ ...row.project, status: row.status, createdAt: row.created_at }))
   } else {
     const directory = localDirectory()
     await mkdir(directory, { recursive: true })
     const names = (await readdir(directory)).filter(name => /^[\da-f-]{36}\.json$/i.test(name))
     projects = await Promise.all(names.map(async name => JSON.parse(await readFile(join(directory, name), 'utf8')) as GalleryProject))
   }
-  return projects.filter(project => project.status === 'approved').sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  return projects.filter(project => {
+    if (project.status !== 'approved') return false
+    if (query.filter === 'From Spin2Build' && project.source !== 'spin2build') return false
+    if (query.filter === 'Original Ideas' && project.source !== 'original') return false
+    if (query.filter === 'Featured' && !project.featured) return false
+    return [project.projectName, project.description, project.projectType, project.topic, project.builderName, project.location, ...project.techStack].join(' ').toLowerCase().includes(query.search.toLowerCase())
+  }).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)).slice(query.page * 24, query.page * 24 + 25)
 }
 
 export async function insertPublished(project: GalleryProject): Promise<GalleryProject['status']> {

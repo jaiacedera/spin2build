@@ -14,7 +14,7 @@ declare global {
 
 export function initializeAnalytics() {
   // Keep local development activity out of the public site's reports.
-  if (!import.meta.env.PROD || document.getElementById('google-analytics')) return
+  if (!import.meta.env.PROD || window.self !== window.top || document.getElementById('google-analytics')) return
 
   window.dataLayer = window.dataLayer || []
   window.gtag = function () {
@@ -31,7 +31,7 @@ export function initializeAnalytics() {
 }
 
 export function trackGeneratedSpin(projectType: string, topic: string) {
-  if (!import.meta.env.PROD) return
+  if (!import.meta.env.PROD || window.self !== window.top) return
 
   try {
     window.gtag?.('event', 'spin_generated', { project_type: projectType, topic })

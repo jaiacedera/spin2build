@@ -8,9 +8,9 @@ import handler from '../api/gallery.ts'
 import { validateSubmission } from '../server/galleryValidation.ts'
 
 const submission = (overrides = {}) => ({ id: randomUUID(), source: 'original', projectName: 'A quiet workspace', description: 'A place to focus.', projectType: 'Website', topic: 'Productivity', techStack: ['Vue', 'TypeScript'], builderName: 'Curious Builder', liveDemoUrl: 'https://demo.example.com/', buildStatus: 'completed', ...overrides })
-async function invoke(method, body, headers = { 'content-type': 'application/json' }) {
+async function invoke(method, body, headers = { 'content-type': 'application/json' }, url = '/api/gallery') {
   const response = { statusCode: 0, headers: {}, setHeader(key, value) { this.headers[key] = value }, end(value) { this.body = JSON.parse(value) } }
-  await handler({ method, body, headers }, response)
+  await handler({ method, body, headers, url }, response)
   return response
 }
 async function localStore(t) {
@@ -87,15 +87,16 @@ test('database adapter queries approved rows and publishes with server-only cred
   process.env.GALLERY_SUPABASE_SERVICE_KEY = 'test-server-key'
   t.after(() => { if (previous === undefined) delete process.env.GALLERY_SUPABASE_SERVICE_KEY; else process.env.GALLERY_SUPABASE_SERVICE_KEY = previous })
   t.mock.method(globalThis, 'fetch', async (url, init) => {
+    if (url.endsWith('/rpc/check_site_usage')) return Response.json({ allowed: true, retry_after: 0 })
     assert.equal(init.headers.apikey, 'test-server-key')
-    if (init.method === 'POST') {
+    if (url.includes('/gallery_projects?') && init.method === 'POST') {
       assert.equal(JSON.parse(init.body).status, 'approved')
       assert.equal(JSON.parse(init.body).project.status, 'approved')
       assert.match(init.headers.Prefer, /ignore-duplicates/)
       return Response.json([{ status: 'approved' }], { status: 201 })
     }
-    assert.match(url, /status=eq.approved/)
-    assert.match(url, /order=created_at.desc/)
+    assert.match(url, /rpc\/gallery_page$/)
+    assert.deepEqual(JSON.parse(init.body), { p_page: 0, p_search: '', p_filter: 'All' })
     return Response.json([{ status: 'approved', created_at: '2026-09-12', project: validateSubmission(submission()) }])
   })
   assert.equal((await invoke('POST', submission())).statusCode, 201)
@@ -125,6 +126,7 @@ test('database duplicate retry returns the stored status without overwriting the
   t.after(() => { if (previous === undefined) delete process.env.GALLERY_SUPABASE_SERVICE_KEY; else process.env.GALLERY_SUPABASE_SERVICE_KEY = previous })
   let status = 'approved'
   t.mock.method(globalThis, 'fetch', async (url, init) => {
+    if (url.endsWith('/rpc/check_site_usage')) return Response.json({ allowed: true, retry_after: 0 })
     if (init.method === 'POST') {
       assert.match(init.headers.Prefer, /ignore-duplicates/)
       return Response.json([])
@@ -135,4 +137,43 @@ test('database duplicate retry returns the stored status without overwriting the
   assert.equal((await invoke('POST', submission())).body.status, 'approved')
   status = 'rejected'
   assert.equal((await invoke('POST', submission())).statusCode, 409)
+})
+
+test('publication quota returns 429 with retry timing and does not save excess builds', async t => {
+  const directory = await localStore(t)
+  for (let i = 0; i < 3; i++) assert.equal((await invoke('POST', submission())).statusCode, 201)
+  const denied = await invoke('POST', submission())
+  assert.equal(denied.statusCode, 429)
+  assert.ok(Number(denied.headers['Retry-After']) > 0)
+  assert.equal(denied.headers['Cache-Control'], 'no-store')
+  assert.equal((await readdir(directory)).length, 3)
+})
+
+test('body limits count UTF-8 bytes and reject large declared bodies before storage', async t => {
+  const directory = await localStore(t)
+  assert.equal((await invoke('POST', submission(), { 'content-type': 'application/json', 'content-length': '32769' })).statusCode, 413)
+  assert.equal((await invoke('POST', { ...submission(), extra: '😀'.repeat(9000) })).statusCode, 400)
+  assert.equal((await readdir(directory)).length, 0)
+})
+
+test('gallery pages are bounded, searchable beyond the first page and cached only for ordinary reads', async t => {
+  const directory = await localStore(t)
+  for (let i = 1; i <= 30; i++) {
+    const project = { ...validateSubmission(submission({ projectName: `Build ${i}` })), createdAt: new Date(Date.UTC(2026, 8, 13, 0, i)).toISOString() }
+    await writeFile(join(directory, project.id + '.json'), JSON.stringify(project))
+  }
+  const first = await invoke('GET')
+  assert.equal(first.body.projects.length, 24)
+  assert.equal(first.body.hasMore, true)
+  assert.match(first.headers['Cache-Control'], /s-maxage=30/)
+  const second = await invoke('GET', undefined, {}, '/api/gallery?page=1')
+  assert.equal(second.body.projects.length, 6)
+  assert.equal(second.body.hasMore, false)
+  assert.equal(new Set([...first.body.projects, ...second.body.projects].map(project => project.id)).size, 30)
+  const search = await invoke('GET', undefined, {}, '/api/gallery?search=Build%201&fresh=1')
+  assert.ok(search.body.projects.some(project => project.projectName === 'Build 1'))
+  assert.equal(search.headers['Cache-Control'], 'no-store')
+  for (const query of ['page=1001', 'page=-1', 'page=1&page=2', 'filter=Anything', 'random=1']) {
+    assert.equal((await invoke('GET', undefined, {}, '/api/gallery?' + query)).statusCode, 400)
+  }
 })
